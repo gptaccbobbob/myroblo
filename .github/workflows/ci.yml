@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    name: Lint, format, build, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Install Wally dependencies
+        run: wally install
+
+      - name: Generate Roblox standard library for Selene
+        run: selene generate-roblox-std
+
+      - name: Check formatting (Stylua)
+        run: stylua --check src tests
+
+      - name: Lint (Selene)
+        run: selene src
+
+      - name: Run unit tests (Lune)
+        run: lune run tests/run
+
+      - name: Build place file (Rojo)
+        run: rojo build --output build.rbxlx default.project.json
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: place-file
+          path: build.rbxlx
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,14 @@
+std = "roblox"
+
+# Common Roblox community settings.
+[lints]
+global_usage = "allow"
+if_same_then_else = "warn"
+manual_table_clone = "warn"
+mismatched_arg_count = "warn"
+must_use = "warn"
+shadowing = "warn"
+unused_variable = "warn"
+
+[config]
+empty_if = { comments_count = true }

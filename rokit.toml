@@ -1,0 +1,10 @@
+# Toolchain pinning for the project.
+# Run `rokit install` after cloning to install all tools at the exact versions below.
+# https://github.com/rojo-rbx/rokit
+
+[tools]
+rojo = "rojo-rbx/rojo@7.6.1"
+wally = "UpliftGames/wally@0.3.2"
+selene = "Kampfkarren/selene@0.28.0"
+stylua = "JohnnyMorganz/stylua@2.0.2"
+lune = "lune-org/lune@0.8.9"
