@@ -29,6 +29,9 @@ local function getOrCreateTycoonsFolder(): Folder
 	return folder
 end
 
+local LOW_FRICTION = PhysicalProperties.new(0.7, 0.05, 0.1)
+local SLOPE_DEGREES = 8
+
 local function makePart(name: string, size: Vector3, position: Vector3, color: BrickColor): Part
 	local part = Instance.new("Part")
 	part.Name = name
@@ -44,12 +47,32 @@ end
 -- Generates a basic plot for the player so the game has something visible
 -- out of the box. Once you build a custom plot template (see README), this
 -- function can be replaced with a clone of that template.
+--
+-- Plot layout (top-down, units = studs):
+--
+--                        z = -19  ┌──────────┐
+--                                 │ NameSign │
+--                                 └──────────┘
+--      x = -13         x = 0            x = 17
+--    ┌─────────┐                       ┌──────────┐
+--    │ Dropper │                       │ Collector│
+--    └────┬────┘                       └──────────┘
+--         ▼
+--   ╔════════════════════════════════╗
+--   ║  Conveyor (sloped down -8°)    ║
+--   ╚════════════════════════════════╝
+--
+--    ┌─────────┐
+--    │BuyButton│  z = +12
+--    └─────────┘
+--
 local function buildPlotForPlayer(player: Player, plotIndex: number): Model
 	local plot = Instance.new("Model")
 	plot.Name = "Tycoon_" .. player.UserId
 	plot:SetAttribute("OwnerId", player.UserId)
 
-	local origin = Vector3.new(plotIndex * PLOT_SPACING, 5, 0)
+	-- Plot origin is at floor level (y=0). Everything is built on top.
+	local origin = Vector3.new(plotIndex * PLOT_SPACING, 0, 0)
 
 	local floor = makePart("Floor", Vector3.new(40, 1, 40), origin, BrickColor.new("Really black"))
 	floor.Material = Enum.Material.WoodPlanks
@@ -57,8 +80,8 @@ local function buildPlotForPlayer(player: Player, plotIndex: number): Model
 
 	local nameSign = Instance.new("Part")
 	nameSign.Name = "NameSign"
-	nameSign.Size = Vector3.new(8, 2, 0.5)
-	nameSign.Position = origin + Vector3.new(0, 8, -20)
+	nameSign.Size = Vector3.new(10, 3, 0.5)
+	nameSign.Position = origin + Vector3.new(0, 8, -19)
 	nameSign.Anchored = true
 	nameSign.BrickColor = BrickColor.new("Bright blue")
 	nameSign.Parent = plot
@@ -74,41 +97,53 @@ local function buildPlotForPlayer(player: Player, plotIndex: number): Model
 	label.Font = Enum.Font.GothamBold
 	label.Parent = gui
 
+	-- Sloped conveyor: 30 long, tilted -8° around Z so its left end (near the
+	-- dropper) is high and its right end (near the collector) is low. The
+	-- low friction lets drops slide under gravity.
+	local conveyor = makePart(
+		"Conveyor",
+		Vector3.new(30, 0.5, 4),
+		origin + Vector3.new(0, 4, 0),
+		BrickColor.new("Medium stone grey")
+	)
+	conveyor.Material = Enum.Material.Metal
+	conveyor.CFrame = CFrame.new(conveyor.Position) * CFrame.Angles(0, 0, math.rad(-SLOPE_DEGREES))
+	conveyor.CustomPhysicalProperties = LOW_FRICTION
+	conveyor.Parent = plot
+
+	-- Dropper hangs above the high (left) end of the conveyor. Drops spawn
+	-- just below the dropper's bottom face (handled in Tycoon/Dropper.luau)
+	-- and fall the short remaining gap onto the conveyor.
 	local dropper = makePart(
 		"Dropper",
-		Vector3.new(4, 4, 4),
-		origin + Vector3.new(-15, 5, 0),
+		Vector3.new(3, 4, 3),
+		origin + Vector3.new(-13, 10, 0),
 		BrickColor.new("Bright yellow")
 	)
+	dropper.Material = Enum.Material.Neon
 	dropper:SetAttribute("ItemId", "starter_dropper")
 	CollectionService:AddTag(dropper, "Dropper")
 	dropper.Parent = plot
 
+	-- Collector sits at floor level, just past the low end of the conveyor.
+	-- Drops slide off the conveyor and land on its top surface.
 	local collector = makePart(
 		"Collector",
-		Vector3.new(6, 1, 6),
-		origin + Vector3.new(15, 0.5, 0),
+		Vector3.new(6, 1, 4),
+		origin + Vector3.new(17, 0.5, 0),
 		BrickColor.new("Bright green")
 	)
 	collector.Material = Enum.Material.Neon
 	CollectionService:AddTag(collector, "Collector")
 	collector.Parent = plot
 
-	-- A simple ramp so drops slide from dropper to collector.
-	local conveyor = makePart(
-		"Conveyor",
-		Vector3.new(28, 0.5, 4),
-		origin + Vector3.new(0, 2, 0),
-		BrickColor.new("Medium stone grey")
-	)
-	conveyor.CFrame = conveyor.CFrame * CFrame.Angles(0, 0, math.rad(-3))
-	conveyor.Parent = plot
-
-	-- One example BuyButton — buys the iron dropper and replaces the starter.
+	-- One example BuyButton — buys the iron dropper. Placed on the floor
+	-- away from the dropper-conveyor flow so the player walks onto it
+	-- deliberately.
 	local buyButton = makePart(
 		"BuyButton_IronDropper",
 		Vector3.new(4, 1, 4),
-		origin + Vector3.new(-15, 0.5, 12),
+		origin + Vector3.new(-13, 1, 12),
 		BrickColor.new("Bright red")
 	)
 	buyButton.Material = Enum.Material.Neon
@@ -121,11 +156,11 @@ local function buildPlotForPlayer(player: Player, plotIndex: number): Model
 end
 
 local function teleportPlayerToPlot(player: Player, plotIndex: number)
-	local origin = Vector3.new(plotIndex * PLOT_SPACING, 10, 20)
+	local spawnPos = Vector3.new(plotIndex * PLOT_SPACING, 5, 15)
 	local character = player.Character or player.CharacterAdded:Wait()
 	local hrp = character:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 	if hrp then
-		hrp.CFrame = CFrame.new(origin)
+		hrp.CFrame = CFrame.new(spawnPos)
 	end
 end
 
