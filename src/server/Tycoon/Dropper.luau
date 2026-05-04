@@ -31,13 +31,19 @@ local function getOwner(part: BasePart): Player?
 	return Players:GetPlayerByUserId(ownerId)
 end
 
+local DROP_SIZE = 1
+local DROP_PHYSICS = PhysicalProperties.new(0.7, 0.1, 0.1)
+
 local function spawnDrop(dropper: BasePart, item: Tycoon.Item, ownerId: number)
 	local drop = Instance.new("Part")
 	drop.Name = "Drop"
-	drop.Size = Vector3.new(1, 1, 1)
-	drop.CFrame = dropper.CFrame * CFrame.new(0, -3, 0)
+	drop.Size = Vector3.new(DROP_SIZE, DROP_SIZE, DROP_SIZE)
+	-- Spawn just below the dropper's bottom face so drops fall onto whatever
+	-- surface is below (typically a sloped conveyor leading to a collector).
+	drop.CFrame = dropper.CFrame * CFrame.new(0, -dropper.Size.Y / 2 - DROP_SIZE, 0)
 	drop.Material = Enum.Material.Neon
 	drop.BrickColor = dropper.BrickColor
+	drop.CustomPhysicalProperties = DROP_PHYSICS
 	drop:SetAttribute("Value", item.dropAmount)
 	drop:SetAttribute("OwnerId", ownerId)
 	CollectionService:AddTag(drop, "Drop")
